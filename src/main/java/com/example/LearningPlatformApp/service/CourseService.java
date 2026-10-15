@@ -170,6 +170,7 @@ public class CourseService {
         course.setLevel(request.level());
         course.setCategory(category);
         course.setThumbnail(request.thumbnail());
+        course=courseRepository.saveAndFlush(course);
 
         return courseMapper.toResponse(course);
     }
