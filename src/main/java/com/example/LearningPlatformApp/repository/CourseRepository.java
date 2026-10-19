@@ -56,5 +56,7 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
             Pageable pageable
     );
 
+    long countByStatus(CourseStatus status);
+
 
 }

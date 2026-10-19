@@ -43,4 +43,6 @@ public interface ReviewRepository
     );
 
     long countByCourseId(Long courseId);
+
+    long count();
 }

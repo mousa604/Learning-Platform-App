@@ -69,4 +69,7 @@ public class Course extends BaseEntity {
     @OrderBy("lessonOrder ASC")
     @Builder.Default
     private List<Lesson> lessons = new ArrayList<>();
+
+    @Column(name = "rejection_reason", length = 1000)
+    private String rejectionReason;
 }

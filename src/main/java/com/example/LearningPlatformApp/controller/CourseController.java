@@ -1,6 +1,7 @@
 
 package com.example.LearningPlatformApp.controller;
 
+import com.example.LearningPlatformApp.dto.request.CourseRejectionRequest;
 import com.example.LearningPlatformApp.dto.request.CourseRequest;
 import com.example.LearningPlatformApp.dto.request.UpdateCourseRequest;
 import com.example.LearningPlatformApp.dto.response.CoursePageResponse;
@@ -104,5 +105,39 @@ public class CourseController {
                 );
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{courseId}/submit-for-review")
+    public ResponseEntity<CourseResponse> submitCourseForReview(
+            @PathVariable Long courseId,
+            @RequestParam Long instructorId) {
+
+        CourseResponse response =
+                courseService.submitCourseForReview(
+                        courseId,
+                        instructorId
+                );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/{courseId}/approve")
+    public ResponseEntity<CourseResponse> approveCourse(
+            @PathVariable Long courseId) {
+
+        return ResponseEntity.ok(
+                courseService.approveCourse(courseId)
+        );
+    }
+
+
+    @PatchMapping("/{courseId}/reject")
+    public ResponseEntity<CourseResponse> rejectCourse(
+            @PathVariable Long courseId,
+            @Valid @RequestBody CourseRejectionRequest request) {
+
+        return ResponseEntity.ok(
+                courseService.rejectCourse(courseId, request)
+        );
     }
 }

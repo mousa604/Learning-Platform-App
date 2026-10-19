@@ -36,4 +36,6 @@ public interface EnrollmentRepository
             Long courseId,
             Collection<EnrollmentStatus> statuses
     );
+
+    long count();
 }
