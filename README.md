@@ -352,7 +352,3 @@ src/main/resources/
 ├── application-dev.properties
 └── application-prod.properties
 ---
-
-## 👤 Author
-
-**mousa604** — [GitHub](https://github.com/mousa604)
