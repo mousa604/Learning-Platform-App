@@ -2,7 +2,6 @@
 
 A REST API for an online learning platform (a mini Udemy) built with **Spring Boot**. Instructors publish courses, admins review and approve them, and students enroll, track their lesson progress, leave reviews, and earn a **PDF certificate** when they finish a course.
 
-![Swagger UI](screenshots/swagger-overview.png)
 
 ---
 
@@ -156,7 +155,6 @@ erDiagram
     USERS ||--o{ NOTIFICATIONS : receives
 ```
 
-![ERD](screenshots/erd.png)
 
 ### ⚠️ Data you must insert manually
 
@@ -353,29 +351,6 @@ src/main/resources/
 ├── application.properties
 ├── application-dev.properties
 └── application-prod.properties
-```
-
----
-
-## 📸 Screenshots
-
-> Add your screenshots here after uploading them to the `screenshots/` folder.
-
-| Screenshot | Suggested file name |
-|---|---|
-| Swagger UI overview | `screenshots/swagger-overview.png` |
-| Login and token | `screenshots/login.png` |
-| Creating a course | `screenshots/create-course.png` |
-| Admin course review | `screenshots/admin-review.png` |
-| Student progress | `screenshots/progress.png` |
-| PDF certificate | `screenshots/certificate.png` |
-| Database diagram | `screenshots/erd.png` |
-
-Example of adding an image:
-```markdown
-![Login](screenshots/login.png)
-```
-
 ---
 
 ## 👤 Author
