@@ -1,3 +1,4 @@
+
 package com.example.LearningPlatformApp.service;
 
 import com.example.LearningPlatformApp.dto.request.ReviewRequest;
@@ -7,6 +8,7 @@ import com.example.LearningPlatformApp.entity.Review;
 import com.example.LearningPlatformApp.entity.User;
 import com.example.LearningPlatformApp.entity.enums.CourseStatus;
 import com.example.LearningPlatformApp.entity.enums.EnrollmentStatus;
+import com.example.LearningPlatformApp.entity.enums.NotificationType;
 import com.example.LearningPlatformApp.exception.BusinessRuleViolationException;
 import com.example.LearningPlatformApp.exception.ResourceNotFoundException;
 import com.example.LearningPlatformApp.mapper.ReviewMapper;
@@ -15,8 +17,6 @@ import com.example.LearningPlatformApp.repository.EnrollmentRepository;
 import com.example.LearningPlatformApp.repository.ReviewRepository;
 import com.example.LearningPlatformApp.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,29 +30,31 @@ public class ReviewService {
     private final UserRepository userRepository;
     private final CourseRepository courseRepository;
     private final ReviewMapper reviewMapper;
+    private final NotificationService notificationService;
 
-    @Autowired
     public ReviewService(ReviewRepository reviewRepository,
                          EnrollmentRepository enrollmentRepository,
                          UserRepository userRepository,
                          CourseRepository courseRepository,
-                         ReviewMapper reviewMapper){
+                         ReviewMapper reviewMapper,
+                         NotificationService notificationService){
         this.reviewRepository=reviewRepository;
         this.enrollmentRepository=enrollmentRepository;
-        this.userRepository=userRepository;
         this.courseRepository=courseRepository;
+        this.userRepository=userRepository;
         this.reviewMapper=reviewMapper;
+        this.notificationService=notificationService;
     }
 
     @Transactional
     public ReviewResponse createReview(
-            Long studentId,
+            String studentEmail,
             Long courseId,
             ReviewRequest request
     ) {
-        User student = userRepository.findById(studentId)
+        User student = userRepository.findByEmail(studentEmail)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Student not found with id: " + studentId
+                        "Student not found"
                 ));
 
         Course course = courseRepository
@@ -60,6 +62,8 @@ public class ReviewService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Published course not found with id: " + courseId
                 ));
+
+        Long studentId = student.getId();
 
         boolean enrolled = enrollmentRepository
                 .existsByStudentIdAndCourseIdAndStatusIn(
@@ -91,6 +95,15 @@ public class ReviewService {
 
         Review savedReview = reviewRepository.save(review);
 
+        notificationService.createNotification(
+                course.getInstructor(),
+                "New Course Review!",
+                student.getFirstName() + " " + student.getLastName()
+                        + " has added a review to your course: "
+                        + course.getTitle(),
+                NotificationType.NEW_REVIEW
+        );
+
         return reviewMapper.toResponse(savedReview);
     }
 
@@ -111,12 +124,17 @@ public class ReviewService {
 
     @Transactional
     public ReviewResponse updateReview(
-            Long studentId,
+            String studentEmail,
             Long reviewId,
             ReviewRequest request
     ) {
+        User student = userRepository.findByEmail(studentEmail)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Student not found"
+                ));
+
         Review review = reviewRepository
-                .findByIdAndStudentId(reviewId, studentId)
+                .findByIdAndStudentId(reviewId, student.getId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Review not found with id: " + reviewId
                 ));
@@ -127,9 +145,14 @@ public class ReviewService {
     }
 
     @Transactional
-    public void deleteReview(Long studentId, Long reviewId) {
+    public void deleteReview(String studentEmail, Long reviewId) {
+        User student = userRepository.findByEmail(studentEmail)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Student not found"
+                ));
+
         Review review = reviewRepository
-                .findByIdAndStudentId(reviewId, studentId)
+                .findByIdAndStudentId(reviewId, student.getId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Review not found with id: " + reviewId
                 ));

@@ -6,6 +6,7 @@ import com.example.LearningPlatformApp.entity.Enrollment;
 import com.example.LearningPlatformApp.entity.User;
 import com.example.LearningPlatformApp.entity.enums.CourseStatus;
 import com.example.LearningPlatformApp.entity.enums.EnrollmentStatus;
+import com.example.LearningPlatformApp.entity.enums.NotificationType;
 import com.example.LearningPlatformApp.exception.BusinessRuleViolationException;
 import com.example.LearningPlatformApp.exception.ResourceNotFoundException;
 import com.example.LearningPlatformApp.mapper.EnrollmentMapper;
@@ -27,25 +28,29 @@ public class EnrollmentService {
     private final UserRepository userRepository;
     private final CourseRepository courseRepository;
     private final EnrollmentMapper enrollmentMapper;
+    private final NotificationService notificationService;
 
     public EnrollmentService(EnrollmentRepository enrollmentRepository, UserRepository userRepository
-                           , CourseRepository courseRepository, EnrollmentMapper enrollmentMapper
+                           , CourseRepository courseRepository, EnrollmentMapper enrollmentMapper,
+                              NotificationService notificationService
     ){
         this.courseRepository=courseRepository;
         this.enrollmentMapper=enrollmentMapper;
         this.enrollmentRepository=enrollmentRepository;
         this.userRepository=userRepository;
+        this.notificationService=notificationService;
 
     }
 
+
     @Transactional
     public EnrollmentResponse enrollStudent(
-            Long studentId,
+            String studentEmail,
             Long courseId
     ) {
-        User student = userRepository.findById(studentId)
+        User student = userRepository.findByEmail(studentEmail)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Student not found with id: " + studentId
+                        "Student not found"
                 ));
 
         Course course = courseRepository
@@ -55,7 +60,7 @@ public class EnrollmentService {
                 ));
 
         if (enrollmentRepository.existsByStudentIdAndCourseId(
-                studentId, courseId)) {
+                student.getId(), courseId)) {
             throw new BusinessRuleViolationException(
                     "Student is already enrolled in this course"
             );
@@ -67,23 +72,28 @@ public class EnrollmentService {
         enrollment.setStatus(EnrollmentStatus.ACTIVE);
         enrollment.setEnrolledAt(LocalDateTime.now());
 
-        Enrollment savedEnrollment =
-                enrollmentRepository.save(enrollment);
+        Enrollment savedEnrollment = enrollmentRepository.save(enrollment);
+        notificationService.createNotification(
+                student,
+                "Course Enrollment Successful",
+                "You have successfully enrolled in the course: "
+                        + course.getTitle(),
+                NotificationType.COURSE_ENROLLED
+        );
 
         return enrollmentMapper.toResponse(savedEnrollment);
     }
 
     @Transactional(readOnly = true)
     public List<EnrollmentResponse> getStudentEnrollments(
-            Long studentId
+            String studentEmail
     ) {
-        if (!userRepository.existsById(studentId)) {
-            throw new ResourceNotFoundException(
-                    "Student not found with id: " + studentId
-            );
-        }
+        User student = userRepository.findByEmail(studentEmail)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Student not found"
+                ));
 
-        return enrollmentRepository.findByStudentId(studentId)
+        return enrollmentRepository.findByStudentId(student.getId())
                 .stream()
                 .map(enrollmentMapper::toResponse)
                 .toList();
@@ -91,11 +101,16 @@ public class EnrollmentService {
 
     @Transactional
     public void cancelEnrollment(
-            Long studentId,
+            String studentEmail,
             Long courseId
     ) {
+        User student = userRepository.findByEmail(studentEmail)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Student not found"
+                ));
+
         Enrollment enrollment = enrollmentRepository
-                .findByStudentIdAndCourseId(studentId, courseId)
+                .findByStudentIdAndCourseId(student.getId(), courseId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Enrollment not found"
                 ));
@@ -108,4 +123,5 @@ public class EnrollmentService {
 
         enrollment.setStatus(EnrollmentStatus.CANCELLED);
     }
+
 }

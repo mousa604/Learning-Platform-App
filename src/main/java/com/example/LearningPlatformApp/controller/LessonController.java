@@ -1,86 +1,145 @@
+
 package com.example.LearningPlatformApp.controller;
 
 import com.example.LearningPlatformApp.dto.request.LessonRequest;
 import com.example.LearningPlatformApp.dto.response.LessonResponse;
 import com.example.LearningPlatformApp.service.LessonService;
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
+import jakarta.validation.Valid;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/courses/{courseId}/lessons")
+@Tag(name = "Lessons", description = "Create, retrieve, update, and delete course lessons")
 public class LessonController {
 
     private final LessonService lessonService;
 
-    @Autowired
-    public LessonController(LessonService lessonService){
-        this.lessonService=lessonService;
+    public LessonController(LessonService lessonService) {
+        this.lessonService = lessonService;
     }
 
-    // Create a lesson
     @PostMapping
+    @Operation(
+            summary = "Create a lesson",
+            description = "Creates a lesson in a course owned by the authenticated instructor.",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Lesson created successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid lesson data"),
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "403", description = "Instructor role required or course access denied"),
+            @ApiResponse(responseCode = "404", description = "Course not found"),
+            @ApiResponse(responseCode = "409", description = "Lesson order conflicts with an existing lesson")
+    })
     public ResponseEntity<LessonResponse> createLesson(
+            @Parameter(description = "ID of the course")
             @PathVariable Long courseId,
-            @RequestParam Long instructorId,
-            @Valid @RequestBody LessonRequest request
-    ) {
+
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody LessonRequest request) {
+
         LessonResponse response = lessonService.createLesson(
                 courseId,
-                instructorId,
+                userDetails.getUsername(),
                 request
         );
 
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(response);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    // Get all lessons for a course
     @GetMapping
+    @Operation(
+            summary = "Get course lessons",
+            description = "Returns the lessons belonging to a course."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Lessons retrieved successfully"),
+            @ApiResponse(responseCode = "404", description = "Course not found")
+    })
     public ResponseEntity<List<LessonResponse>> getCourseLessons(
-            @PathVariable Long courseId
-    ) {
+            @Parameter(description = "ID of the course")
+            @PathVariable Long courseId) {
+
         return ResponseEntity.ok(
                 lessonService.getCourseLessons(courseId)
         );
     }
 
-    // Update a lesson
     @PutMapping("/{lessonId}")
+    @Operation(
+            summary = "Update a lesson",
+            description = "Updates a lesson in a course owned by the authenticated instructor.",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Lesson updated successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid lesson data"),
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "403", description = "Instructor role required or course access denied"),
+            @ApiResponse(responseCode = "404", description = "Course or lesson not found"),
+            @ApiResponse(responseCode = "409", description = "Lesson order conflicts with another lesson")
+    })
     public ResponseEntity<LessonResponse> updateLesson(
+            @Parameter(description = "ID of the course")
             @PathVariable Long courseId,
+
+            @Parameter(description = "ID of the lesson")
             @PathVariable Long lessonId,
-            @RequestParam Long instructorId,
-            @Valid @RequestBody LessonRequest request
-    ) {
+
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody LessonRequest request) {
+
         return ResponseEntity.ok(
                 lessonService.updateLesson(
                         courseId,
                         lessonId,
-                        instructorId,
+                        userDetails.getUsername(),
                         request
                 )
         );
     }
 
-    // Delete a lesson
     @DeleteMapping("/{lessonId}")
+    @Operation(
+            summary = "Delete a lesson",
+            description = "Deletes a lesson from a course owned by the authenticated instructor.",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Lesson deleted successfully"),
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "403", description = "Instructor role required or course access denied"),
+            @ApiResponse(responseCode = "404", description = "Course or lesson not found")
+    })
     public ResponseEntity<Void> deleteLesson(
+            @Parameter(description = "ID of the course")
             @PathVariable Long courseId,
+
+            @Parameter(description = "ID of the lesson")
             @PathVariable Long lessonId,
-            @RequestParam Long instructorId
-    ) {
+
+            @AuthenticationPrincipal UserDetails userDetails) {
+
         lessonService.deleteLesson(
                 courseId,
                 lessonId,
-                instructorId
+                userDetails.getUsername()
         );
 
         return ResponseEntity.noContent().build();

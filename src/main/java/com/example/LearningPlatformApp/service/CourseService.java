@@ -2,19 +2,25 @@ package com.example.LearningPlatformApp.service;
 
 import com.example.LearningPlatformApp.dto.request.CourseRejectionRequest;
 import com.example.LearningPlatformApp.dto.request.CourseRequest;
+import com.example.LearningPlatformApp.dto.request.CourseTagsRequest;
 import com.example.LearningPlatformApp.dto.request.UpdateCourseRequest;
 import com.example.LearningPlatformApp.dto.response.CoursePageResponse;
 import com.example.LearningPlatformApp.dto.response.CourseResponse;
 import com.example.LearningPlatformApp.dto.response.PendingCourseResponse;
 import com.example.LearningPlatformApp.entity.Category;
 import com.example.LearningPlatformApp.entity.Course;
+import com.example.LearningPlatformApp.entity.Tag;
 import com.example.LearningPlatformApp.entity.User;
 import com.example.LearningPlatformApp.entity.enums.CourseLevel;
 import com.example.LearningPlatformApp.entity.enums.CourseStatus;
+import com.example.LearningPlatformApp.entity.enums.NotificationType;
 import com.example.LearningPlatformApp.exception.BusinessRuleViolationException;
+import com.example.LearningPlatformApp.exception.InvalidRequestException;
 import com.example.LearningPlatformApp.exception.ResourceNotFoundException;
 import com.example.LearningPlatformApp.mapper.CourseMapper;
 import com.example.LearningPlatformApp.repository.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -24,10 +30,14 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class CourseService {
+    private static final Logger log =
+            LoggerFactory.getLogger(CourseService.class);
 
     private final CourseRepository courseRepository;
     private final CategoryRepository categoryRepository;
@@ -37,6 +47,9 @@ public class CourseService {
 
     private final LessonRepository lessonRepository;
 
+    private final TagRepository tagRepository;
+    private final NotificationService notificationService;
+
     @Autowired
     public CourseService(
             CourseRepository courseRepository,
@@ -44,7 +57,9 @@ public class CourseService {
             UserRepository userRepository,
             CourseMapper courseMapper,
             EnrollmentRepository enrollmentRepository,
-            LessonRepository lessonRepository
+            LessonRepository lessonRepository,
+            TagRepository tagRepository,
+            NotificationService notificationService
     ) {
         this.courseRepository = courseRepository;
         this.categoryRepository = categoryRepository;
@@ -52,36 +67,41 @@ public class CourseService {
         this.courseMapper = courseMapper;
         this.enrollmentRepository=enrollmentRepository;
         this.lessonRepository=lessonRepository;
+        this.tagRepository=tagRepository;
+        this.notificationService=notificationService;
+    }
+
+    private User getInstructorByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Instructor not found")
+                );
     }
 
     @Transactional
     public CourseResponse createCourse(
             CourseRequest request,
-            Long instructorId
-    ) {
+            String instructorEmail) {
+
         Category category = categoryRepository
                 .findById(request.categoryId())
                 .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Category not found"
-                        )
+                        new ResourceNotFoundException("Category not found")
                 );
 
-        User instructor = userRepository
-                .findById(instructorId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Instructor not found"
-                        )
-                );
+        User instructor = getInstructorByEmail(instructorEmail);
 
         Course course = courseMapper.toEntity(request);
-
         course.setCategory(category);
         course.setInstructor(instructor);
         course.setStatus(CourseStatus.DRAFT);
 
         Course savedCourse = courseRepository.save(course);
+        log.info(
+                "Course created successfully. courseId={}, instructorId={}",
+                savedCourse.getId(),
+                instructor.getId()
+        );
 
         return courseMapper.toResponse(savedCourse);
     }
@@ -91,17 +111,7 @@ public class CourseService {
             int page,
             int size
     ) {
-        if (page < 0) {
-            throw new IllegalArgumentException(
-                    "Page number must be zero or greater"
-            );
-        }
-
-        if (size < 1 || size > 100) {
-            throw new IllegalArgumentException(
-                    "Page size must be between 1 and 100"
-            );
-        }
+        validatePagination(page,size);
 
         Pageable pageable = PageRequest.of(
                 page,
@@ -149,11 +159,13 @@ public class CourseService {
     @Transactional
     public CourseResponse updateCourse(
             Long courseId,
-            Long instructorId,
-            UpdateCourseRequest request
-    ) {
+            String instructorEmail,
+            UpdateCourseRequest request) {
+
+        User instructor = getInstructorByEmail(instructorEmail);
+
         Course course = courseRepository
-                .findByIdAndInstructorId(courseId, instructorId)
+                .findByIdAndInstructorId(courseId, instructor.getId())
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
                                 "Course not found or you are not its instructor"
@@ -163,9 +175,7 @@ public class CourseService {
         Category category = categoryRepository
                 .findById(request.categoryId())
                 .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Category not found"
-                        )
+                        new ResourceNotFoundException("Category not found")
                 );
 
         course.setTitle(request.title());
@@ -174,18 +184,23 @@ public class CourseService {
         course.setLevel(request.level());
         course.setCategory(category);
         course.setThumbnail(request.thumbnail());
-        course=courseRepository.saveAndFlush(course);
+
+        course = courseRepository.saveAndFlush(course);
+        log.info(
+                "Course updated successfully. courseId={}, instructorId={}",
+                course.getId(),
+                instructor.getId()
+        );
 
         return courseMapper.toResponse(course);
     }
 
     @Transactional
-    public void archiveCourse(
-            Long courseId,
-            Long instructorId
-    ) {
+    public void archiveCourse(Long courseId, String instructorEmail) {
+        User instructor = getInstructorByEmail(instructorEmail);
+
         Course course = courseRepository
-                .findByIdAndInstructorId(courseId, instructorId)
+                .findByIdAndInstructorId(courseId, instructor.getId())
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
                                 "Course not found or you are not its instructor"
@@ -208,6 +223,11 @@ public class CourseService {
         }
 
         course.setStatus(CourseStatus.ARCHIVED);
+        log.info(
+                "Course archived successfully. courseId={}, instructorId={}",
+                course.getId(),
+                instructor.getId()
+        );
     }
 
 
@@ -220,17 +240,7 @@ public class CourseService {
             int page,
             int size
     ) {
-        if (page < 0) {
-            throw new IllegalArgumentException(
-                    "Page number must be zero or greater"
-            );
-        }
-
-        if (size < 1 || size > 100) {
-            throw new IllegalArgumentException(
-                    "Page size must be between 1 and 100"
-            );
-        }
+        validatePagination(page,size);
 
         if (categoryId != null && categoryId < 1) {
             throw new IllegalArgumentException(
@@ -280,10 +290,12 @@ public class CourseService {
     @Transactional
     public CourseResponse submitCourseForReview(
             Long courseId,
-            Long instructorId) {
+            String instructorEmail) {
+
+        User instructor = getInstructorByEmail(instructorEmail);
 
         Course course = courseRepository
-                .findByIdAndInstructorId(courseId, instructorId)
+                .findByIdAndInstructorId(courseId, instructor.getId())
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
                                 "Course not found or you are not the owner"
@@ -310,6 +322,11 @@ public class CourseService {
         course.setStatus(CourseStatus.PENDING_REVIEW);
 
         Course savedCourse = courseRepository.save(course);
+        log.info(
+                "Course submitted for review. courseId={}, instructorId={}",
+                savedCourse.getId(),
+                instructor.getId()
+        );
 
         return courseMapper.toResponse(savedCourse);
     }
@@ -336,14 +353,30 @@ public class CourseService {
 
         Course savedCourse = courseRepository.save(course);
 
+        // Notify the instructor
+        notificationService.createNotification(
+                savedCourse.getInstructor(),
+                "Course Published!",
+                "Congratulations! Your course: "
+                        + savedCourse.getTitle()
+                        + " has been approved and published successfully.",
+                NotificationType.COURSE_PUBLISHED
+        );
+
+        log.info(
+                "Course approved successfully. courseId={}",
+                savedCourse.getId()
+        );
+
         return courseMapper.toResponse(savedCourse);
     }
+
 
     @Transactional
     public CourseResponse rejectCourse(
             Long courseId,
-            CourseRejectionRequest request) {
-
+            CourseRejectionRequest request
+    ) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
@@ -357,31 +390,40 @@ public class CourseService {
             );
         }
 
+        String rejectionReason = request.reason().trim();
+
         course.setStatus(CourseStatus.REJECTED);
-        course.setRejectionReason(request.reason().trim());
+        course.setRejectionReason(rejectionReason);
         course.setPublishedAt(null);
 
         Course savedCourse = courseRepository.save(course);
 
+        // Notify the instructor
+        notificationService.createNotification(
+                savedCourse.getInstructor(),
+                "Course Rejected",
+                "Your course: " + savedCourse.getTitle()
+                        + " has been rejected. Reason: "
+                        + rejectionReason,
+                NotificationType.COURSE_REJECTED
+        );
+
+        log.info(
+                "Course rejected. courseId={}, instructorId={}",
+                savedCourse.getId(),
+                savedCourse.getInstructor().getId()
+        );
+
         return courseMapper.toResponse(savedCourse);
     }
+
 
     @Transactional(readOnly = true)
     public Page<PendingCourseResponse> getPendingCourses(
             int page,
             int size) {
 
-        if (page < 0) {
-            throw new IllegalArgumentException(
-                    "Page number cannot be negative"
-            );
-        }
-
-        if (size < 1 || size > 100) {
-            throw new IllegalArgumentException(
-                    "Page size must be between 1 and 100"
-            );
-        }
+        validatePagination(page,size);
 
         Pageable pageable = PageRequest.of(
                 page,
@@ -406,5 +448,52 @@ public class CourseService {
                         course.getCreatedAt()
                 )
         );
+    }
+
+
+    @Transactional
+    public CourseResponse assignTagsToCourse(
+            Long courseId,
+            String instructorEmail,
+            CourseTagsRequest request
+    ) {
+        User instructor = getInstructorByEmail(instructorEmail);
+
+        Course course = courseRepository
+                .findByIdAndInstructorId(courseId, instructor.getId())
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Course not found or you are not its instructor"
+                        )
+                );
+
+        Set<Long> tagIds = new LinkedHashSet<>(request.tagIds());
+
+        List<Tag> tags = tagRepository.findAllById(tagIds);
+
+        if (tags.size() != tagIds.size()) {
+            throw new ResourceNotFoundException(
+                    "One or more tags were not found"
+            );
+        }
+
+        course.setTags(new LinkedHashSet<>(tags));
+
+        return courseMapper.toResponse(course);
+    }
+
+
+    private void validatePagination(int page, int size) {
+        if (page < 0) {
+            throw new InvalidRequestException(
+                    "Page number must be zero or greater"
+            );
+        }
+
+        if (size < 1 || size > 100) {
+            throw new InvalidRequestException(
+                    "Page size must be between 1 and 100"
+            );
+        }
     }
 }

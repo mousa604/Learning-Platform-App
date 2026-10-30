@@ -1,10 +1,15 @@
+
 package com.example.LearningPlatformApp.mapper;
 
 import com.example.LearningPlatformApp.dto.request.CourseRequest;
 import com.example.LearningPlatformApp.dto.response.CourseResponse;
+import com.example.LearningPlatformApp.dto.response.TagResponse;
 import com.example.LearningPlatformApp.entity.Course;
+import com.example.LearningPlatformApp.entity.Tag;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+
+import java.util.List;
 
 @Mapper(componentModel = "spring")
 public interface CourseMapper {
@@ -15,6 +20,7 @@ public interface CourseMapper {
     @Mapping(target = "category", ignore = true)
     @Mapping(target = "publishedAt", ignore = true)
     @Mapping(target = "lessons", ignore = true)
+    @Mapping(target = "tags", ignore = true)
     Course toEntity(CourseRequest request);
 
     @Mapping(target = "instructorId", source = "instructor.id")
@@ -24,5 +30,10 @@ public interface CourseMapper {
     )
     @Mapping(target = "categoryId", source = "category.id")
     @Mapping(target = "categoryName", source = "category.name")
+    @Mapping(target = "tags", source = "tags")
     CourseResponse toResponse(Course course);
+
+    TagResponse toTagResponse(Tag tag);
+
+    List<TagResponse> toTagResponseList(List<Tag> tags);
 }

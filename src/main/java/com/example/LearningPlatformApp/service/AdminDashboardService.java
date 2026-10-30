@@ -1,3 +1,4 @@
+
 package com.example.LearningPlatformApp.service;
 
 import com.example.LearningPlatformApp.dto.response.AdminDashboardResponse;
@@ -6,8 +7,6 @@ import com.example.LearningPlatformApp.repository.CourseRepository;
 import com.example.LearningPlatformApp.repository.EnrollmentRepository;
 import com.example.LearningPlatformApp.repository.ReviewRepository;
 import com.example.LearningPlatformApp.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,15 +18,16 @@ public class AdminDashboardService {
     private final EnrollmentRepository enrollmentRepository;
     private final ReviewRepository reviewRepository;
 
-    @Autowired
-    public AdminDashboardService(UserRepository userRepository,
-                                 CourseRepository courseRepository,
-                                 EnrollmentRepository enrollmentRepository,
-                                 ReviewRepository reviewRepository ){
-        this.userRepository=userRepository;
-        this.courseRepository=courseRepository;
-        this.enrollmentRepository=enrollmentRepository;
-        this.reviewRepository=reviewRepository;
+    public AdminDashboardService(
+            UserRepository userRepository,
+            CourseRepository courseRepository,
+            EnrollmentRepository enrollmentRepository,
+            ReviewRepository reviewRepository
+    ) {
+        this.userRepository = userRepository;
+        this.courseRepository = courseRepository;
+        this.enrollmentRepository = enrollmentRepository;
+        this.reviewRepository = reviewRepository;
     }
 
     @Transactional(readOnly = true)

@@ -6,6 +6,7 @@ import com.example.LearningPlatformApp.entity.enums.CourseStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record CourseResponse(
         Long id,
@@ -21,6 +22,7 @@ public record CourseResponse(
         Long instructorId,
         String instructorName,
         Long categoryId,
-        String categoryName
+        String categoryName,
+        List<TagResponse>tags
 ) {
 }

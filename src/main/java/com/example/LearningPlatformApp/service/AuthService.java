@@ -7,11 +7,12 @@ import com.example.LearningPlatformApp.dto.auth.RegisterRequest;
 import com.example.LearningPlatformApp.dto.auth.RegisterResponse;
 import com.example.LearningPlatformApp.entity.Role;
 import com.example.LearningPlatformApp.entity.User;
+import com.example.LearningPlatformApp.exception.BusinessRuleViolationException;
 import com.example.LearningPlatformApp.repository.RoleRepository;
 import com.example.LearningPlatformApp.repository.UserRepository;
 import com.example.LearningPlatformApp.security.JwtService;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -20,7 +21,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.http.HttpStatus;
 
 import java.util.HashSet;
 import java.util.Locale;
@@ -34,22 +34,19 @@ public class AuthService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
 
-    @Autowired
     public AuthService(
             AuthenticationManager authenticationManager,
             JwtService jwtService,
             UserRepository userRepository,
             RoleRepository roleRepository,
-            PasswordEncoder passwordEncoder) {
-
+            PasswordEncoder passwordEncoder
+    ) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
     }
-
-
 
     @Transactional
     public RegisterResponse register(RegisterRequest request) {
@@ -59,8 +56,7 @@ public class AuthService {
                 .toLowerCase(Locale.ROOT);
 
         if (userRepository.existsByEmail(email)) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
+            throw new BusinessRuleViolationException(
                     "Email is already registered"
             );
         }
@@ -95,10 +91,14 @@ public class AuthService {
 
     public AuthResponse login(LoginRequest request) {
 
+        String email = request.email()
+                .trim()
+                .toLowerCase(Locale.ROOT);
+
         Authentication authentication =
                 authenticationManager.authenticate(
                         new UsernamePasswordAuthenticationToken(
-                                request.email(),
+                                email,
                                 request.password()
                         )
                 );

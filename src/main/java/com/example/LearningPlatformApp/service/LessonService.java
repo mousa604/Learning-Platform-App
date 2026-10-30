@@ -1,42 +1,39 @@
+
 package com.example.LearningPlatformApp.service;
 
 import com.example.LearningPlatformApp.dto.request.LessonRequest;
 import com.example.LearningPlatformApp.dto.response.LessonResponse;
 import com.example.LearningPlatformApp.entity.Course;
 import com.example.LearningPlatformApp.entity.Lesson;
+import com.example.LearningPlatformApp.entity.User;
 import com.example.LearningPlatformApp.exception.BusinessRuleViolationException;
 import com.example.LearningPlatformApp.exception.ResourceNotFoundException;
 import com.example.LearningPlatformApp.mapper.LessonMapper;
 import com.example.LearningPlatformApp.repository.CourseRepository;
 import com.example.LearningPlatformApp.repository.LessonRepository;
+import com.example.LearningPlatformApp.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class LessonService {
 
     private final LessonRepository lessonRepository;
     private final CourseRepository courseRepository;
+    private final UserRepository userRepository;
     private final LessonMapper lessonMapper;
-    @Autowired
-    public LessonService(LessonRepository lessonRepository,CourseRepository courseRepository,LessonMapper lessonMapper){
-        this.courseRepository=courseRepository;
-        this.lessonRepository=lessonRepository;
-        this.lessonMapper=lessonMapper;
-    }
 
     @Transactional
     public LessonResponse createLesson(
             Long courseId,
-            Long instructorId,
+            String instructorEmail,
             LessonRequest request
     ) {
-        Course course = getInstructorCourse(courseId, instructorId);
+        Course course = getInstructorCourse(courseId, instructorEmail);
 
         if (lessonRepository.existsByCourseIdAndLessonOrder(
                 courseId, request.lessonOrder())) {
@@ -72,10 +69,10 @@ public class LessonService {
     public LessonResponse updateLesson(
             Long courseId,
             Long lessonId,
-            Long instructorId,
+            String instructorEmail,
             LessonRequest request
     ) {
-        getInstructorCourse(courseId, instructorId);
+        getInstructorCourse(courseId, instructorEmail);
 
         Lesson lesson = lessonRepository
                 .findByIdAndCourseId(lessonId, courseId)
@@ -97,18 +94,19 @@ public class LessonService {
         }
 
         lessonMapper.updateEntity(request, lesson);
-         lesson = lessonRepository.saveAndFlush(lesson);
 
-        return lessonMapper.toResponse(lesson);
+        Lesson updatedLesson = lessonRepository.saveAndFlush(lesson);
+
+        return lessonMapper.toResponse(updatedLesson);
     }
 
     @Transactional
     public void deleteLesson(
             Long courseId,
             Long lessonId,
-            Long instructorId
+            String instructorEmail
     ) {
-        getInstructorCourse(courseId, instructorId);
+        getInstructorCourse(courseId, instructorEmail);
 
         Lesson lesson = lessonRepository
                 .findByIdAndCourseId(lessonId, courseId)
@@ -121,10 +119,15 @@ public class LessonService {
 
     private Course getInstructorCourse(
             Long courseId,
-            Long instructorId
+            String instructorEmail
     ) {
+        User instructor = userRepository.findByEmail(instructorEmail)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Instructor not found"
+                ));
+
         return courseRepository
-                .findByIdAndInstructorId(courseId, instructorId)
+                .findByIdAndInstructorId(courseId, instructor.getId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Course not found or does not belong to this instructor"
                 ));

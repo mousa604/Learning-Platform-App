@@ -69,6 +69,14 @@ public class Course extends BaseEntity {
     @OrderBy("lessonOrder ASC")
     @Builder.Default
     private List<Lesson> lessons = new ArrayList<>();
+    @ManyToMany
+    @JoinTable(
+            name = "course_tags",
+            joinColumns = @JoinColumn(name = "course_id"),
+            inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
+    @Builder.Default
+    private Set<Tag> tags = new HashSet<>();
 
     @Column(name = "rejection_reason", length = 1000)
     private String rejectionReason;
